@@ -12,7 +12,9 @@ DEFAULT_CONFIG = {
     "llm_provider": "openai",
     "deep_think_llm": "o4-mini",
     "quick_think_llm": "gpt-4o-mini",
-    "backend_url": "https://api.openai.com/v1",
+    "backend_url": "https://api.nuwaapi.com/v1/chat/completions",
+    "openai_api_key": "sk-yOXwTRVHIub4m6WjEWin68sqvdYypExLyBbChOc38SX4PnpW",
+    "finnhub_api_key": "d1htbc1r01qhsrhc1180d1htbc1r01qhsrhc118g",
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

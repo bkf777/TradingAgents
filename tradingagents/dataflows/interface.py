@@ -14,6 +14,84 @@ from tqdm import tqdm
 import yfinance as yf
 from openai import OpenAI
 from .config import get_config, set_config, DATA_DIR
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+
+
+async def _create_tavily_mcp_agent(config):
+    """
+    创建 Tavily MCP 代理的通用函数
+    """
+    # 创建 MCP 客户端
+    client = MultiServerMCPClient({
+        "tavily-mcp": {
+            "command": "npx",
+            "args": ["-y", "tavily-mcp@0.1.2"],
+            "env": {
+                "TAVILY_API_KEY": "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"
+            },
+            "transport": "stdio"
+        }
+    })
+
+    # 获取工具
+    tools = await client.get_tools()
+
+    # 创建 LLM 实例
+    from langchain_openai import ChatOpenAI
+    # 对于 MCP 环境中的 LangChain ChatOpenAI，需要使用基础 URL（不包含 /chat/completions）
+    backend_url = config["backend_url"]
+    if backend_url.endswith("/chat/completions"):
+        backend_url = backend_url.replace("/chat/completions", "")
+
+    llm = ChatOpenAI(
+        model=config["quick_think_llm"],
+        base_url=backend_url,
+        api_key=config["openai_api_key"],
+    )
+
+    # 创建 React 代理
+    agent = create_react_agent(llm, tools)
+
+    return client, agent
+
+
+async def _execute_mcp_query(query, description="MCP查询"):
+    """
+    执行 MCP 查询的通用函数
+    """
+    config = get_config()
+
+    try:
+        client, agent = await _create_tavily_mcp_agent(config)
+
+        print(f"执行{description}: {query}")
+
+        # 调用代理
+        response = await agent.ainvoke({"messages": [{"role": "user", "content": query}]})
+
+        # 返回响应内容
+        if isinstance(response, dict) and 'messages' in response:
+            messages = response['messages']
+            if messages:
+                last_message = messages[-1]
+                if hasattr(last_message, 'content'):
+                    return last_message.content
+                elif isinstance(last_message, dict) and 'content' in last_message:
+                    return last_message['content']
+
+        return str(response)
+
+    except Exception as e:
+        print(f"{description}错误: {e}")
+        return f"错误: {str(e)}"
+
+    finally:
+        # 清理资源
+        try:
+            await client.close()
+        except:
+            pass
 
 
 def get_finnhub_news(
@@ -702,106 +780,25 @@ def get_YFin_data(
     return filtered_data
 
 
-def get_stock_news_openai(ticker, curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search Social Media for {ticker} from 7 days before {curr_date} to {curr_date}? Make sure you only get the data posted during that period.",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+async def get_stock_news_openai(ticker, curr_date):
+    """
+    获取股票社交媒体新闻，使用 Tavily MCP 获取实时数据
+    """
+    query = f"Can you search Social Media for {ticker} from 7 days before {curr_date} to {curr_date}? Make sure you only get the data posted during that period."
+    return await _execute_mcp_query(query, f"股票{ticker}社交媒体新闻查询")
 
 
-def get_global_news_openai(curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search global or macroeconomics news from 7 days before {curr_date} to {curr_date} that would be informative for trading purposes? Make sure you only get the data posted during that period.",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+async def get_global_news_openai(curr_date):
+    """
+    获取全球宏观经济新闻，使用 Tavily MCP 获取实时数据
+    """
+    query = f"Search for global macroeconomic news from 7 days before {curr_date} to {curr_date} that would be informative for trading purposes. Focus on central bank decisions, economic indicators, inflation data, GDP reports, employment data, and major economic policy announcements."
+    return await _execute_mcp_query(query, "全球宏观经济新闻查询")
 
 
-def get_fundamentals_openai(ticker, curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search Fundamental for discussions on {ticker} during of the month before {curr_date} to the month of {curr_date}. Make sure you only get the data posted during that period. List as a table, with PE/PS/Cash flow/ etc",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+async def get_fundamentals_openai(ticker, curr_date):
+    """
+    获取股票基本面分析数据，使用 Tavily MCP 获取实时数据
+    """
+    query = f"Search for fundamental analysis and financial data for {ticker} from the month before {curr_date} to {curr_date}. Look for earnings reports, financial statements, analyst ratings, PE ratio, PS ratio, cash flow data, revenue growth, profit margins, and other key financial metrics."
+    return await _execute_mcp_query(query, f"股票{ticker}基本面分析查询")

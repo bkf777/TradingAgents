@@ -9,7 +9,10 @@ class FinancialSituationMemory:
             self.embedding = "nomic-embed-text"
         else:
             self.embedding = "text-embedding-3-small"
-        self.client = OpenAI(base_url=config["backend_url"])
+
+        # 对于 OpenAI 客户端，需要使用完整的端点 URL
+        backend_url = config["backend_url"]
+        self.client = OpenAI(base_url=backend_url, api_key=config["openai_api_key"])
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
         self.situation_collection = self.chroma_client.create_collection(name=name)
 
