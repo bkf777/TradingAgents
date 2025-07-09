@@ -25,3 +25,6 @@ questionary
 langchain_anthropic
 langchain-google-genai
 langchain-mcp-adapters
+flask
+flask-cors
+flask-restx

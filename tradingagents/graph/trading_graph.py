@@ -58,29 +58,61 @@ class TradingAgentsGraph:
         )
 
         # Initialize LLMs
-        if self.config["llm_provider"].lower() == "openai" or self.config["llm_provider"] == "ollama" or self.config["llm_provider"] == "openrouter":
+        if (
+            self.config["llm_provider"].lower() == "openai"
+            or self.config["llm_provider"] == "ollama"
+            or self.config["llm_provider"] == "openrouter"
+        ):
             # 对于这个特定的 API 服务，LangChain ChatOpenAI 需要使用完整的端点 URL
             backend_url = self.config["backend_url"]
 
-            self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=backend_url, api_key=self.config["openai_api_key"])
-            self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=backend_url, api_key=self.config["openai_api_key"])
+            self.deep_thinking_llm = ChatOpenAI(
+                model=self.config["deep_think_llm"],
+                base_url=backend_url,
+                api_key=self.config["openai_api_key"],
+            )
+            self.quick_thinking_llm = ChatOpenAI(
+                model=self.config["quick_think_llm"],
+                base_url=backend_url,
+                api_key=self.config["openai_api_key"],
+            )
         elif self.config["llm_provider"].lower() == "anthropic":
-            self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatAnthropic(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
+            self.deep_thinking_llm = ChatAnthropic(
+                model=self.config["deep_think_llm"], base_url=self.config["backend_url"]
+            )
+            self.quick_thinking_llm = ChatAnthropic(
+                model=self.config["quick_think_llm"],
+                base_url=self.config["backend_url"],
+            )
         elif self.config["llm_provider"].lower() == "google":
-            self.deep_thinking_llm = ChatGoogleGenerativeAI(model=self.config["deep_think_llm"])
-            self.quick_thinking_llm = ChatGoogleGenerativeAI(model=self.config["quick_think_llm"])
+            self.deep_thinking_llm = ChatGoogleGenerativeAI(
+                model=self.config["deep_think_llm"]
+            )
+            self.quick_thinking_llm = ChatGoogleGenerativeAI(
+                model=self.config["quick_think_llm"]
+            )
         else:
             raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
-        
+
         self.toolkit = Toolkit(config=self.config)
 
         # Initialize memories
-        self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
-        self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
-        self.trader_memory = FinancialSituationMemory("trader_memory", self.config)
-        self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
-        self.risk_manager_memory = FinancialSituationMemory("risk_manager_memory", self.config)
+        reset_collections = self.config.get("reset_memory_collections", False)
+        self.bull_memory = FinancialSituationMemory(
+            "bull_memory", self.config, reset_collections
+        )
+        self.bear_memory = FinancialSituationMemory(
+            "bear_memory", self.config, reset_collections
+        )
+        self.trader_memory = FinancialSituationMemory(
+            "trader_memory", self.config, reset_collections
+        )
+        self.invest_judge_memory = FinancialSituationMemory(
+            "invest_judge_memory", self.config, reset_collections
+        )
+        self.risk_manager_memory = FinancialSituationMemory(
+            "risk_manager_memory", self.config, reset_collections
+        )
 
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()
@@ -179,9 +211,12 @@ class TradingAgentsGraph:
                     trace.append(chunk)
 
             final_state = trace[-1]
+            # Store trace for AI message extraction
+            self.trace = trace
         else:
             # Standard mode without tracing
             final_state = self.graph.invoke(init_agent_state, **args)
+            self.trace = None
 
         # Store current state for reflection
         self.curr_state = final_state

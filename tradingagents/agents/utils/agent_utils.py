@@ -23,15 +23,15 @@ def create_msg_delete():
     def delete_messages(state):
         """Clear messages and add placeholder for Anthropic compatibility"""
         messages = state["messages"]
-        
+
         # Remove all messages
         removal_operations = [RemoveMessage(id=m.id) for m in messages]
-        
+
         # Add a minimal placeholder message
         placeholder = HumanMessage(content="Continue")
-        
+
         return {"messages": removal_operations + [placeholder]}
-    
+
     return delete_messages
 
 
@@ -64,7 +64,7 @@ class Toolkit:
         Returns:
             str: A formatted dataframe containing the latest global news from Reddit in the specified time frame.
         """
-        
+
         global_news_result = interface.get_reddit_global_news(curr_date, 7, 5)
 
         return global_news_result
@@ -389,7 +389,9 @@ class Toolkit:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    return loop.run_until_complete(interface.get_stock_news_openai(ticker, curr_date))
+                    return loop.run_until_complete(
+                        interface.get_stock_news_openai(ticker, curr_date)
+                    )
                 finally:
                     loop.close()
             except Exception as e:
@@ -447,7 +449,9 @@ class Toolkit:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    return loop.run_until_complete(interface.get_global_news_openai(curr_date))
+                    return loop.run_until_complete(
+                        interface.get_global_news_openai(curr_date)
+                    )
                 finally:
                     loop.close()
             except Exception as e:
@@ -507,7 +511,9 @@ class Toolkit:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    return loop.run_until_complete(interface.get_fundamentals_openai(ticker, curr_date))
+                    return loop.run_until_complete(
+                        interface.get_fundamentals_openai(ticker, curr_date)
+                    )
                 finally:
                     loop.close()
             except Exception as e:
@@ -578,7 +584,7 @@ class Toolkit:
         # 创建 LLM 实例
         llm = ChatOpenAI(
             model=llm_config.get("quick_think_llm", "gpt-4o-mini"),
-            base_url=llm_config.get("backend_url", "https://api.nuwaapi.com/v1/chat/completions"),
+            base_url=llm_config.get("backend_url", "https://api.nuwaapi.com/v1"),
             api_key=llm_config.get("openai_api_key", ""),
         )
 
@@ -588,7 +594,9 @@ class Toolkit:
         return client, agent
 
     @classmethod
-    async def execute_mcp_query(cls, query, server_configs, description="MCP查询", llm_config=None):
+    async def execute_mcp_query(
+        cls, query, server_configs, description="MCP查询", llm_config=None
+    ):
         """
         执行 MCP 查询的通用方法
         Args:
@@ -606,17 +614,19 @@ class Toolkit:
             print(f"执行{description}: {query}")
 
             # 调用代理
-            response = await agent.ainvoke({"messages": [{"role": "user", "content": query}]})
+            response = await agent.ainvoke(
+                {"messages": [{"role": "user", "content": query}]}
+            )
 
             # 返回响应内容
-            if isinstance(response, dict) and 'messages' in response:
-                messages = response['messages']
+            if isinstance(response, dict) and "messages" in response:
+                messages = response["messages"]
                 if messages:
                     last_message = messages[-1]
-                    if hasattr(last_message, 'content'):
+                    if hasattr(last_message, "content"):
                         return last_message.content
-                    elif isinstance(last_message, dict) and 'content' in last_message:
-                        return last_message['content']
+                    elif isinstance(last_message, dict) and "content" in last_message:
+                        return last_message["content"]
 
             return str(response)
 
@@ -632,7 +642,9 @@ class Toolkit:
                     pass
 
     @classmethod
-    def run_mcp_query_sync(cls, query, server_configs, description="MCP查询", llm_config=None):
+    def run_mcp_query_sync(
+        cls, query, server_configs, description="MCP查询", llm_config=None
+    ):
         """
         同步执行 MCP 查询的方法（在新线程中运行异步函数）
         Args:
@@ -643,6 +655,7 @@ class Toolkit:
         Returns:
             str: 查询结果
         """
+
         def run_async_in_thread():
             """在新线程中运行异步函数"""
             try:
@@ -651,7 +664,9 @@ class Toolkit:
                 asyncio.set_event_loop(loop)
                 try:
                     return loop.run_until_complete(
-                        cls.execute_mcp_query(query, server_configs, description, llm_config)
+                        cls.execute_mcp_query(
+                            query, server_configs, description, llm_config
+                        )
                     )
                 finally:
                     loop.close()
@@ -702,10 +717,8 @@ class Toolkit:
             "tavily-mcp": {
                 "command": "npx",
                 "args": ["-y", "tavily-mcp@0.1.2"],
-                "env": {
-                    "TAVILY_API_KEY": api_key
-                },
-                "transport": "stdio"
+                "env": {"TAVILY_API_KEY": api_key},
+                "transport": "stdio",
             }
         }
 
@@ -722,7 +735,7 @@ class Toolkit:
             "filesystem-mcp": {
                 "command": "npx",
                 "args": ["-y", "@modelcontextprotocol/server-filesystem"],
-                "transport": "stdio"
+                "transport": "stdio",
             }
         }
 
@@ -742,7 +755,7 @@ class Toolkit:
             "web-search-mcp": {
                 "command": "npx",
                 "args": ["-y", "@modelcontextprotocol/server-web-search"],
-                "transport": "stdio"
+                "transport": "stdio",
             }
         }
 
@@ -765,9 +778,7 @@ class Toolkit:
         search_query = f"Search for: {query}. Limit results to {max_results} items."
 
         return Toolkit.run_mcp_query_sync(
-            search_query,
-            tavily_config,
-            f"网络搜索: {query}"
+            search_query, tavily_config, f"网络搜索: {query}"
         )
 
     @staticmethod
@@ -788,9 +799,7 @@ class Toolkit:
         search_query = f"Search for financial news about {topic} from {date_range}. Focus on market impact, earnings, and economic indicators."
 
         return Toolkit.run_mcp_query_sync(
-            search_query,
-            tavily_config,
-            f"财经新闻搜索: {topic}"
+            search_query, tavily_config, f"财经新闻搜索: {topic}"
         )
 
     @staticmethod
@@ -811,9 +820,7 @@ class Toolkit:
         search_query = f"Search for market sentiment analysis and investor opinions about {ticker} stock over {analysis_period}. Include social media sentiment, analyst opinions, and market commentary."
 
         return Toolkit.run_mcp_query_sync(
-            search_query,
-            tavily_config,
-            f"市场情绪分析: {ticker}"
+            search_query, tavily_config, f"市场情绪分析: {ticker}"
         )
 
     @staticmethod
@@ -835,13 +842,13 @@ class Toolkit:
         search_query = f"Search for competitor analysis and market positioning of {company}{industry_filter}. Include market share, competitive advantages, and recent competitive developments."
 
         return Toolkit.run_mcp_query_sync(
-            search_query,
-            tavily_config,
-            f"竞争对手分析: {company}"
+            search_query, tavily_config, f"竞争对手分析: {company}"
         )
 
     @classmethod
-    def create_custom_mcp_tool(cls, tool_name, description, server_configs, query_template):
+    def create_custom_mcp_tool(
+        cls, tool_name, description, server_configs, query_template
+    ):
         """
         创建自定义 MCP 工具
         Args:
@@ -852,6 +859,7 @@ class Toolkit:
         Returns:
             function: 装饰后的工具函数
         """
+
         def tool_function(**kwargs):
             """动态生成的 MCP 工具函数"""
             try:
@@ -859,9 +867,7 @@ class Toolkit:
                 query = query_template.format(**kwargs)
 
                 return cls.run_mcp_query_sync(
-                    query,
-                    server_configs,
-                    f"{tool_name}: {kwargs}"
+                    query, server_configs, f"{tool_name}: {kwargs}"
                 )
             except KeyError as e:
                 return f"错误: 查询模板中缺少参数 {e}"
@@ -899,7 +905,7 @@ class Toolkit:
             tool_name=tool_name,
             description=description,
             server_configs=tavily_config,
-            query_template=search_template
+            query_template=search_template,
         )
 
     # 示例：创建一些专门的搜索工具
@@ -909,7 +915,7 @@ class Toolkit:
         return cls.create_tavily_search_tool(
             tool_name="get_earnings_analysis",
             search_template="Search for earnings analysis and financial performance of {ticker} for {quarter} {year}. Include revenue, profit margins, guidance, and analyst reactions.",
-            description="获取指定公司的财报分析和财务表现"
+            description="获取指定公司的财报分析和财务表现",
         )
 
     @classmethod
@@ -918,7 +924,7 @@ class Toolkit:
         return cls.create_tavily_search_tool(
             tool_name="get_regulatory_news",
             search_template="Search for regulatory news and policy changes affecting {industry} sector in {region} from {date_range}. Focus on compliance requirements and market impact.",
-            description="获取影响特定行业的监管新闻和政策变化"
+            description="获取影响特定行业的监管新闻和政策变化",
         )
 
     @classmethod
@@ -927,7 +933,7 @@ class Toolkit:
         return cls.create_tavily_search_tool(
             tool_name="get_merger_acquisition_news",
             search_template="Search for merger and acquisition news involving {company} or {industry} sector from {date_range}. Include deal values, strategic rationale, and market reactions.",
-            description="获取并购相关新闻和市场反应"
+            description="获取并购相关新闻和市场反应",
         )
 
     # 工具注册方法
@@ -959,11 +965,11 @@ class Toolkit:
             dict: 工具名称到工具函数的映射
         """
         return {
-            'search_web_with_mcp': cls.search_web_with_mcp,
-            'get_financial_news_mcp': cls.get_financial_news_mcp,
-            'analyze_market_sentiment_mcp': cls.analyze_market_sentiment_mcp,
-            'get_competitor_analysis_mcp': cls.get_competitor_analysis_mcp,
-            'get_earnings_analysis_tool': cls.get_earnings_analysis_tool(),
-            'get_regulatory_news_tool': cls.get_regulatory_news_tool(),
-            'get_merger_acquisition_tool': cls.get_merger_acquisition_tool(),
+            "search_web_with_mcp": cls.search_web_with_mcp,
+            "get_financial_news_mcp": cls.get_financial_news_mcp,
+            "analyze_market_sentiment_mcp": cls.analyze_market_sentiment_mcp,
+            "get_competitor_analysis_mcp": cls.get_competitor_analysis_mcp,
+            "get_earnings_analysis_tool": cls.get_earnings_analysis_tool(),
+            "get_regulatory_news_tool": cls.get_regulatory_news_tool(),
+            "get_merger_acquisition_tool": cls.get_merger_acquisition_tool(),
         }

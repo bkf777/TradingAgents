@@ -4,7 +4,7 @@ from openai import OpenAI
 
 
 class FinancialSituationMemory:
-    def __init__(self, name, config):
+    def __init__(self, name, config, reset_collection=False):
         if config["backend_url"] == "http://localhost:11434/v1":
             self.embedding = "nomic-embed-text"
         else:
@@ -14,14 +14,35 @@ class FinancialSituationMemory:
         backend_url = config["backend_url"]
         self.client = OpenAI(base_url=backend_url, api_key=config["openai_api_key"])
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
-        self.situation_collection = self.chroma_client.create_collection(name=name)
+
+        # 处理集合的创建或获取
+        if reset_collection:
+            # 如果需要重置，先删除现有集合（如果存在）
+            try:
+                self.chroma_client.delete_collection(name=name)
+                print(f"🗑️ 删除现有集合: {name}")
+            except Exception:
+                pass  # 集合不存在，忽略错误
+
+            # 创建新集合
+            self.situation_collection = self.chroma_client.create_collection(name=name)
+            print(f"✅ 创建新的集合: {name}")
+        else:
+            # 检查集合是否已存在，如果存在则获取，否则创建新的
+            try:
+                self.situation_collection = self.chroma_client.get_collection(name=name)
+                print(f"✅ 使用现有的集合: {name}")
+            except Exception:
+                # 集合不存在，创建新的
+                self.situation_collection = self.chroma_client.create_collection(
+                    name=name
+                )
+                print(f"✅ 创建新的集合: {name}")
 
     def get_embedding(self, text):
         """Get OpenAI embedding for a text"""
-        
-        response = self.client.embeddings.create(
-            model=self.embedding, input=text
-        )
+
+        response = self.client.embeddings.create(model=self.embedding, input=text)
         return response.data[0].embedding
 
     def add_situations(self, situations_and_advice):
