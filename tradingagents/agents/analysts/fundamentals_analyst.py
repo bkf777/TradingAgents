@@ -21,8 +21,8 @@ def create_fundamentals_analyst(llm, toolkit):
             ]
 
         system_message = (
-            "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, company financial history, insider sentiment and insider transactions to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."
-            + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read.",
+            "你是一名研究员，负责分析某公司过去一周的基本面信息。请撰写一份关于该公司基本面信息的全面报告，内容包括财务文件、公司简介、基本财务数据、公司财务历史、内部人士情绪及内部交易情况，以便交易者全面了解该公司的基本面信息。确保尽可能提供详细内容，不要简单陈述趋势好坏参半，而应提供详细且精细的分析和见解，帮助交易者做出决策。"
+            + "务必在报告末尾添加一个Markdown表格，整理报告中的关键要点，使其条理清晰、易于阅读。",
         )
 
         prompt = ChatPromptTemplate.from_messages(

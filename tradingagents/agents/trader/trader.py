@@ -30,7 +30,7 @@ def create_trader(llm, memory):
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situatiosn you traded in and the lessons learned: {past_memory_str}""",
+                "content": f"""你是一个分析市场数据以做出投资决策的交易智能体。基于你的分析，提供具体的买入、卖出或持有建议。以明确的决定结束，并始终以'最终交易提案：**买入/持有/卖出**'来确认你的建议。不要忘记利用过去决策的经验教训来避免重复错误。以下是你在类似情况下交易的一些反思和学到的经验：{past_memory_str}""",
             },
             context,
         ]
