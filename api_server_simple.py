@@ -379,26 +379,53 @@ def analyze():
         # 获取AI交互消息
         ai_messages = []
 
-        # 从trace中获取所有AI交互消息
+        # 从trace中获取所有AI交互消息（避免重复）
         if hasattr(ta, "trace") and ta.trace:
             print(f"🔍 从trace中提取AI消息，共 {len(ta.trace)} 个步骤")
 
+            # 使用集合来跟踪已处理的消息，避免重复
+            processed_messages = set()
+
             for step_idx, step in enumerate(ta.trace):
                 if "messages" in step and step["messages"]:
-                    for msg_idx, msg in enumerate(step["messages"]):
+                    # 只处理当前步骤中新增的消息
+                    # LangGraph的trace中，每个chunk包含累积的消息列表
+                    # 我们需要找出这一步新增的消息
+
+                    current_messages = step["messages"]
+
+                    # 如果是第一步，所有消息都是新的
+                    if step_idx == 0:
+                        new_messages = current_messages
+                    else:
+                        # 获取上一步的消息数量
+                        prev_step = ta.trace[step_idx - 1]
+                        prev_msg_count = len(prev_step.get("messages", []))
+                        # 只取新增的消息
+                        new_messages = current_messages[prev_msg_count:]
+
+                    # 处理新增的消息
+                    for msg_idx, msg in enumerate(new_messages):
                         if hasattr(msg, "content") and hasattr(msg, "type"):
-                            ai_messages.append(
-                                {
-                                    "type": msg.type,
-                                    "content": str(msg.content),
-                                    "timestamp": datetime.now().isoformat(),
-                                    "step_index": step_idx,
-                                    "message_index": msg_idx,
-                                }
-                            )
-                            print(
-                                f"  📝 步骤 {step_idx}, 消息 {msg_idx}: [{msg.type}] {str(msg.content)[:100]}..."
-                            )
+                            # 创建消息的唯一标识符
+                            msg_id = f"{step_idx}_{len(current_messages) - len(new_messages) + msg_idx}_{hash(str(msg.content))}"
+
+                            if msg_id not in processed_messages:
+                                processed_messages.add(msg_id)
+                                ai_messages.append(
+                                    {
+                                        "type": msg.type,
+                                        "content": str(msg.content),
+                                        "timestamp": datetime.now().isoformat(),
+                                        "step_index": step_idx,
+                                        "message_index": len(current_messages)
+                                        - len(new_messages)
+                                        + msg_idx,
+                                    }
+                                )
+                                print(
+                                    f"  📝 步骤 {step_idx}, 新消息 {msg_idx}: [{msg.type}] {str(msg.content)[:100]}..."
+                                )
 
         # 如果trace为空，尝试从curr_state获取
         elif (
