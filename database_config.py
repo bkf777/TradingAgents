@@ -166,6 +166,182 @@ class MessageManager:
             print(f"❌ 数据库写入异常: {e}")
             return None
 
+    def save_message(
+        self,
+        symbol: str,
+        analysis_date: str,
+        conversation_id: str,
+        message_type: str,
+        content: str,
+        step_index: int = None,
+        message_index: int = None,
+        metadata: Dict = None,
+    ) -> str:
+        """
+        保存消息到数据库（支持自定义conversation_id）
+        注意：此方法已弃用，因为数据库表中没有conversation_id字段
+        请使用 save_message_optimized 方法
+
+        Args:
+            symbol: 股票代码
+            analysis_date: 分析日期
+            conversation_id: 会话ID
+            message_type: 消息类型 (ai, human, system, tool)
+            content: 消息内容
+            step_index: 步骤索引
+            message_index: 消息索引
+            metadata: 元数据
+
+        Returns:
+            str: 新创建的消息ID，失败返回None
+        """
+        # 重定向到优化的方法
+        return self.save_message_optimized(
+            symbol=symbol,
+            analysis_date=analysis_date,
+            task_id=f"task_{symbol}_{analysis_date}_{datetime.now().strftime('%H%M%S')}",
+            message_type=message_type,
+            content=content,
+            metadata={
+                "symbol": symbol,
+                "analysis_date": analysis_date,
+                "conversation_id": conversation_id,
+                "step_index": step_index,
+                "message_index": message_index,
+                "timestamp": datetime.now().isoformat(),
+                **(metadata or {}),
+            },
+        )
+
+    def save_message_optimized(
+        self,
+        symbol: str,
+        analysis_date: str,
+        task_id: str,
+        message_type: str,
+        content: str,
+        metadata: Dict = None,
+    ) -> str:
+        """
+        优化的消息保存方法，根据实际数据库表结构设计
+        自动处理外键约束，确保task_id在tasks表中存在
+
+        Args:
+            symbol: 股票代码
+            analysis_date: 分析日期
+            task_id: 任务ID
+            message_type: 消息类型 (human, ai, system, tool)
+            content: 消息内容
+            metadata: 元数据
+
+        Returns:
+            str: 新创建的消息ID，失败返回None
+        """
+        try:
+            message_id = str(uuid.uuid4())
+
+            # 验证 message_type 是否符合数据库枚举约束
+            valid_types = ["human", "ai", "system", "tool"]
+            if message_type not in valid_types:
+                logger.warning(f"无效的消息类型 '{message_type}'，使用默认值 'ai'")
+                message_type = "ai"
+
+            # 确保任务存在（处理外键约束）
+            self._ensure_task_exists_optimized(task_id, symbol, analysis_date)
+
+            # 准备元数据
+            full_metadata = {
+                "symbol": symbol,
+                "analysis_date": analysis_date,
+                "timestamp": datetime.now().isoformat(),
+            }
+            if metadata:
+                full_metadata.update(metadata)
+
+            # 根据实际数据库表结构构建查询
+            query = """
+            INSERT INTO messages (
+                message_id, task_id, message_type, content, metadata, sequence_number
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            """
+
+            # 从metadata中获取sequence_number，如果没有则使用1
+            sequence_number = 1
+            if metadata and "message_index" in metadata:
+                sequence_number = metadata["message_index"] + 1  # 数据库序号从1开始
+
+            params = (
+                message_id,
+                task_id,
+                message_type,
+                content,
+                json.dumps(full_metadata),
+                sequence_number,
+            )
+
+            affected_rows = self.db.execute_update(query, params)
+
+            if affected_rows > 0:
+                logger.info(
+                    f"保存消息成功: {message_id} for {symbol} (任务: {task_id})"
+                )
+                print(f"💾 数据库写入成功: {symbol} -> {message_id} (任务: {task_id})")
+                return message_id
+            else:
+                logger.warning(f"保存消息失败: 没有行被影响")
+                print(f"⚠️ 数据库写入失败: 没有行被影响")
+                return None
+
+        except Exception as e:
+            logger.error(f"保存消息失败: {e}")
+            print(f"❌ 数据库写入异常: {e}")
+            # 打印详细错误信息用于调试
+            import traceback
+
+            print(f"❌ 详细错误堆栈: {traceback.format_exc()}")
+            return None
+
+    def _ensure_task_exists_optimized(
+        self, task_id: str, symbol: str, analysis_date: str
+    ):
+        """
+        确保任务存在（优化版本，根据实际tasks表结构）
+
+        Args:
+            task_id: 任务ID
+            symbol: 股票代码
+            analysis_date: 分析日期
+        """
+        try:
+            # 检查任务是否存在
+            check_query = "SELECT task_id FROM tasks WHERE task_id = %s"
+            result = self.db.execute_query(check_query, (task_id,))
+
+            if not result:
+                # 创建任务（根据实际表结构）
+                insert_query = """
+                INSERT INTO tasks (
+                    task_id, ticker, title, description, status,
+                    research_depth, analysis_period, created_by
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                params = (
+                    task_id,
+                    symbol,  # ticker字段
+                    f"{symbol} 股票分析任务",  # title
+                    f"{symbol} 在 {analysis_date} 的分析任务",  # description
+                    "running",  # status
+                    "medium",  # research_depth
+                    "1d",  # analysis_period
+                    "api_server",  # created_by
+                )
+                self.db.execute_update(insert_query, params)
+                print(f"✅ 创建任务: {task_id} (股票: {symbol})")
+        except Exception as e:
+            logger.warning(f"确保任务存在失败: {e}")
+            print(f"⚠️ 创建任务失败: {e}")
+            # 不抛出异常，让调用方继续尝试
+
     def _ensure_conversation_exists(
         self, conversation_id: str, symbol: str, analysis_date: str
     ):

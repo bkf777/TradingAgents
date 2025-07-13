@@ -66,16 +66,53 @@ class TradingAgentsGraph:
             # 对于这个特定的 API 服务，LangChain ChatOpenAI 需要使用完整的端点 URL
             backend_url = self.config["backend_url"]
 
-            self.deep_thinking_llm = ChatOpenAI(
-                model=self.config["deep_think_llm"],
-                base_url=backend_url,
-                api_key=self.config["openai_api_key"],
-            )
-            self.quick_thinking_llm = ChatOpenAI(
-                model=self.config["quick_think_llm"],
-                base_url=backend_url,
-                api_key=self.config["openai_api_key"],
-            )
+            # 导入稳定的API客户端工具
+            try:
+                from ..utils.api_client import create_robust_openai_instance
+                import httpx
+
+                # 创建自定义HTTP客户端，增强连接稳定性
+                http_client = httpx.Client(
+                    timeout=60.0,  # 增加超时时间
+                    limits=httpx.Limits(
+                        max_connections=10, max_keepalive_connections=5
+                    ),
+                    verify=True,
+                    transport=httpx.HTTPTransport(retries=2),  # 添加重试
+                )
+
+                print("使用增强的HTTP客户端配置初始化LLM...")
+
+                self.deep_thinking_llm = ChatOpenAI(
+                    model=self.config["deep_think_llm"],
+                    base_url=backend_url,
+                    api_key=self.config["openai_api_key"],
+                    http_client=http_client,
+                    max_retries=3,  # LangChain级别的重试
+                    request_timeout=60.0,  # 请求超时
+                )
+                self.quick_thinking_llm = ChatOpenAI(
+                    model=self.config["quick_think_llm"],
+                    base_url=backend_url,
+                    api_key=self.config["openai_api_key"],
+                    http_client=http_client,
+                    max_retries=3,
+                    request_timeout=60.0,
+                )
+
+            except ImportError:
+                print("使用标准配置初始化LLM...")
+                # 备用方案：使用标准配置
+                self.deep_thinking_llm = ChatOpenAI(
+                    model=self.config["deep_think_llm"],
+                    base_url=backend_url,
+                    api_key=self.config["openai_api_key"],
+                )
+                self.quick_thinking_llm = ChatOpenAI(
+                    model=self.config["quick_think_llm"],
+                    base_url=backend_url,
+                    api_key=self.config["openai_api_key"],
+                )
         elif self.config["llm_provider"].lower() == "anthropic":
             self.deep_thinking_llm = ChatAnthropic(
                 model=self.config["deep_think_llm"], base_url=self.config["backend_url"]

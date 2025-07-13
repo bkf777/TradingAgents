@@ -4,6 +4,16 @@ from .yfin_utils import YFinanceUtils
 from .reddit_utils import fetch_top_from_category
 from .stockstats_utils import StockstatsUtils
 from .yfin_utils import YFinanceUtils
+from .akshare_utils import (
+    akshare_utils,
+    get_akshare_stock_data,
+    get_akshare_stock_info,
+    get_akshare_balance_sheet,
+    get_akshare_income_statement,
+    get_akshare_cash_flow,
+    get_akshare_news,
+    get_akshare_global_news,
+)
 
 from .interface import (
     # News and sentiment functions
@@ -49,4 +59,13 @@ __all__ = [
     # Market data functions
     "get_YFin_data_window",
     "get_YFin_data",
+    # AKShare functions
+    "akshare_utils",
+    "get_akshare_stock_data",
+    "get_akshare_stock_info",
+    "get_akshare_balance_sheet",
+    "get_akshare_income_statement",
+    "get_akshare_cash_flow",
+    "get_akshare_news",
+    "get_akshare_global_news",
 ]
