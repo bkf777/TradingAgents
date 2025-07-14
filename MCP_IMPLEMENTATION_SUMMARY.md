@@ -164,8 +164,8 @@ result = asyncio.run(advanced_analysis())
 
 ### API 密钥配置
 - Tavily API 密钥: 默认使用项目中的密钥，可通过 `get_tavily_mcp_config(api_key)` 自定义
-- OpenAI API 密钥: 使用项目配置中的密钥 `sk-yOXwTRVHIub4m6WjEWin68sqvdYypExLyBbChOc38SX4PnpW`
-- 后端 URL: 使用 `https://api.nuwaapi.com/v1/chat/completions`
+- OpenAI API 密钥: 使用项目配置中的密钥 ``
+- 后端 URL: 使用 ``
 
 ### LLM 配置
 ```python
